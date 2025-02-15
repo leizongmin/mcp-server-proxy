@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -77,6 +76,18 @@ func readBody(body io.ReadCloser) (string, io.ReadCloser, error) {
 
 func colorPrintf(color string, format string, a ...interface{}) {
 	fmt.Printf(color+format+resetColor, a...)
+}
+
+type chunkedResponseWriter struct {
+	origin   http.ResponseWriter
+	reqNum   uint64
+	chunkNum uint64
+}
+
+func (w *chunkedResponseWriter) Write(p []byte) (int, error) {
+	chunkNum := atomic.AddUint64(&w.chunkNum, 1)
+	colorPrintf(green, "=== Response %d Body Chunk %d ===\n%s\n", w.reqNum, chunkNum, string(p))
+	return w.origin.Write(p)
 }
 
 func startInspect(localUrl, targetUrl string) error {
@@ -160,45 +171,28 @@ func startInspect(localUrl, targetUrl string) error {
 			}
 		}
 
+		// Set chunked encoding if the response is chunked
+		if len(resp.TransferEncoding) > 0 && resp.TransferEncoding[0] == "chunked" {
+			w.Header().Set("Transfer-Encoding", "chunked")
+			colorPrintf(green, "=== Response %d Transfer-Encoding: chunked ===\n", reqNum)
+		}
+
 		// Set response status code
 		w.WriteHeader(resp.StatusCode)
 
-		// Create a pipe for streaming response body
-		pr, pw := io.Pipe()
-
-		// Create a multi-writer to write to both the client and our pipe
-		mw := io.MultiWriter(w, pw)
-
-		// Start a goroutine to read and print chunks from the pipe
-		go func() {
-			defer pr.Close()
-			reader := bufio.NewReader(pr)
-			buffer := make([]byte, 4096)
-			chunkNum := 0
-
-			for {
-				n, err := reader.Read(buffer)
-				if n > 0 {
-					chunkNum++
-					chunk := buffer[:n]
-					colorPrintf(green, "=== Response %d Body Chunk %d ===\n%s\n", reqNum, chunkNum, string(chunk))
-				}
-				if err == io.EOF {
-					colorPrintf(green, "=== Response %d Body Complete ===\n\n", reqNum)
-					break
-				}
-				if err != nil {
-					colorPrintf(green, "Error reading response chunk: %v\n", err)
-					break
-				}
-			}
-		}()
-
-		// Copy response body to multi-writer
-		if _, err := io.Copy(mw, resp.Body); err != nil {
-			colorPrintf(green, "Failed to copy response body: %v\n", err)
+		// Create chunked response writer for logging
+		chunkedWriter := &chunkedResponseWriter{
+			origin: w,
+			reqNum: reqNum,
 		}
-		pw.Close()
+
+		// Copy response body while maintaining chunked encoding
+		if _, err := io.Copy(chunkedWriter, resp.Body); err != nil {
+			colorPrintf(green, "Failed to copy response body: %v\n", err)
+			return
+		}
+
+		colorPrintf(green, "=== Response %d Body Complete ===\n\n", reqNum)
 	}))
 	if err != nil {
 		return fmt.Errorf("listen local_url failed: %v", err)
