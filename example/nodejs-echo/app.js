@@ -3,6 +3,8 @@ module.exports = {
   callTool,
 };
 
+const tools = {};
+
 async function listTools(sessionId, params) {
   console.log("listTools: sessionId=%s, params=%j", sessionId, params);
   return {
@@ -26,16 +28,18 @@ async function listTools(sessionId, params) {
 
 async function callTool(sessionId, params) {
   console.log("callTool: sessionId=%s, params=%j", sessionId, params);
-  switch (params.name) {
-    case "echo":
-      return functionEcho(sessionId, params);
-    default:
-      throw new Error(`Unknown tool: ${params.name}`);
+  const fn = tools[params.name];
+  if (typeof fn !== "function") {
+    throw new Error(`Unknown tool: ${params.name}`);
   }
+  return fn(sessionId, params);
 }
 
-async function functionEcho(sessionId, params) {
+tools.echo = async function echo(sessionId, params) {
   return {
-    content: [{ type: "text", text: `ECHO: ${params.arguments.message}` }],
+    content: [
+      { type: "text", text: `SESSION ID: ${sessionId}` },
+      { type: "text", text: `ECHO: ${params.arguments.message}` },
+    ],
   };
-}
+};
