@@ -39,14 +39,30 @@ func readBody(body io.ReadCloser) (string, io.ReadCloser, error) {
 
 type chunkedResponseWriter struct {
 	origin   http.ResponseWriter
+	flusher  http.Flusher
 	reqNum   uint64
 	chunkNum uint64
+}
+
+func newChunkedResponseWriter(origin http.ResponseWriter, reqNum uint64) *chunkedResponseWriter {
+	return &chunkedResponseWriter{
+		origin:  origin,
+		flusher: origin.(http.Flusher),
+		reqNum:  reqNum,
+	}
 }
 
 func (w *chunkedResponseWriter) Write(p []byte) (int, error) {
 	chunkNum := atomic.AddUint64(&w.chunkNum, 1)
 	colorPrintf(green, "=== Response %d Body Chunk %d ===\n%s\n", w.reqNum, chunkNum, string(p))
-	return w.origin.Write(p)
+	n, err := w.origin.Write(p)
+	if err != nil {
+		return n, err
+	}
+	if w.flusher != nil {
+		w.flusher.Flush()
+	}
+	return n, nil
 }
 
 func startInspect(localUrl, targetUrl string) error {
@@ -140,10 +156,7 @@ func startInspect(localUrl, targetUrl string) error {
 		w.WriteHeader(resp.StatusCode)
 
 		// Create chunked response writer for logging
-		chunkedWriter := &chunkedResponseWriter{
-			origin: w,
-			reqNum: reqNum,
-		}
+		chunkedWriter := newChunkedResponseWriter(w, reqNum)
 
 		// Copy response body while maintaining chunked encoding
 		if _, err := io.Copy(chunkedWriter, resp.Body); err != nil {

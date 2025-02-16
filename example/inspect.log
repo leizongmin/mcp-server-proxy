@@ -1,0 +1,164 @@
+go run . inspect http://127.0.0.1:3002 http://127.0.0.1:3001
+=== Request 1 ===
+URL: /sse
+Headers:
+Accept-Language: *
+Sec-Fetch-Mode: cors
+User-Agent: node
+Pragma: no-cache
+Accept-Encoding: gzip, deflate
+Connection: keep-alive
+Cache-Control: no-cache
+Accept: */*
+
+Failed to send proxy request: Get "http://127.0.0.1:3001/sse": dial tcp 127.0.0.1:3001: connect: connection refused
+=== Request 2 ===
+URL: /sse
+Headers:
+Connection: keep-alive
+Accept: */*
+Accept-Language: *
+Sec-Fetch-Mode: cors
+User-Agent: node
+Pragma: no-cache
+Cache-Control: no-cache
+Accept-Encoding: gzip, deflate
+
+=== Response 2 ===
+Status: 200 OK
+Headers:
+Cache-Control: no-cache
+Connection: keep-alive
+Date: Sun, 16 Feb 2025 03:21:11 GMT
+X-Powered-By: Express
+Content-Type: text/event-stream
+
+=== Response 2 Transfer-Encoding: chunked ===
+=== Response 2 Body Chunk 1 ===
+event: endpoint
+data: /message?sessionId=9c13cb62-1510-44d8-a67b-79e021fe9760
+
+
+=== Request 3 ===
+URL: /message?sessionId=9c13cb62-1510-44d8-a67b-79e021fe9760
+Headers:
+Accept: */*
+Accept-Language: *
+Accept-Encoding: gzip, deflate
+Connection: keep-alive
+Content-Type: application/json
+Sec-Fetch-Mode: cors
+User-Agent: node
+Content-Length: 204
+Body:
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{"sampling":{},"roots":{"listChanged":true}},"clientInfo":{"name":"mcp-inspector","version":"0.0.1"}}}
+
+=== Response 3 ===
+Status: 202 Accepted
+Headers:
+X-Powered-By: Express
+Date: Sun, 16 Feb 2025 03:21:11 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+=== Response 3 Transfer-Encoding: chunked ===
+=== Response 3 Body Chunk 1 ===
+Accepted
+=== Response 3 Body Complete ===
+
+=== Response 2 Body Chunk 2 ===
+event: message
+data: {"result":{"protocolVersion":"2024-11-05","capabilities":{"prompts":{},"resources":{"subscribe":true},"tools":{},"logging":{}},"serverInfo":{"name":"example-servers/everything","version":"1.0.0"}},"jsonrpc":"2.0","id":0}
+
+
+=== Request 4 ===
+URL: /message?sessionId=9c13cb62-1510-44d8-a67b-79e021fe9760
+Headers:
+Connection: keep-alive
+Content-Type: application/json
+Accept-Language: *
+Sec-Fetch-Mode: cors
+User-Agent: node
+Accept: */*
+Accept-Encoding: gzip, deflate
+Content-Length: 54
+Body:
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+
+=== Response 4 ===
+Status: 202 Accepted
+Headers:
+Connection: keep-alive
+Keep-Alive: timeout=5
+X-Powered-By: Express
+Date: Sun, 16 Feb 2025 03:21:11 GMT
+
+=== Response 4 Transfer-Encoding: chunked ===
+=== Response 4 Body Chunk 1 ===
+Accepted
+=== Response 4 Body Complete ===
+
+=== Request 5 ===
+URL: /message?sessionId=9c13cb62-1510-44d8-a67b-79e021fe9760
+Headers:
+Accept-Language: *
+Accept-Encoding: gzip, deflate
+Content-Length: 58
+Sec-Fetch-Mode: cors
+User-Agent: node
+Connection: keep-alive
+Content-Type: application/json
+Accept: */*
+Body:
+{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}
+
+=== Response 5 ===
+Status: 202 Accepted
+Headers:
+Keep-Alive: timeout=5
+X-Powered-By: Express
+Date: Sun, 16 Feb 2025 03:21:22 GMT
+Connection: keep-alive
+
+=== Response 5 Transfer-Encoding: chunked ===
+=== Response 2 Body Chunk 3 ===
+event: message
+data: {"result":{"tools":[{"name":"echo","description":"Echoes back the input","inputSchema":{"type":"object","properties":{"message":{"type":"string","description":"Message to echo"}},"required":["message"],"additionalProperties":false,"$schema":"http://json-schema.org/draft-07/schema#"}},{"name":"add","description":"Adds two numbers","inputSchema":{"type":"object","properties":{"a":{"type":"number","description":"First number"},"b":{"type":"number","description":"Second number"}},"required":["a","b"],"additionalProperties":false,"$schema":"http://json-schema.org/draft-07/schema#"}},{"name":"printEnv","description":"Prints all environment variables, helpful for debugging MCP server configuration","inputSchema":{"type":"object","properties":{},"additionalProperties":false,"$schema":"http://json-schema.org/draft-07/schema#"}},{"name":"longRunningOperation","description":"Demonstrates a long running operation with progress updates","inputSchema":{"type":"object","properties":{"duration":{"type":"number","default":10,"description":"Duration of the operation in seconds"},"steps":{"type":"number","default":5,"description":"Number of steps in the operation"}},"additionalProperties":false,"$schema":"http://json-schema.org/draft-07/schema#"}},{"name":"sampleLLM","description":"Samples from an LLM using MCP's sampling feature","inputSchema":{"type":"object","properties":{"prompt":{"type":"string","description":"The prompt to send to the LLM"},"maxTokens":{"type":"number","default":100,"description":"Maximum number of tokens to generate"}},"required":["prompt"],"additionalProperties":false,"$schema":"http://json-schema.org/draft-07/schema#"}},{"name":"getTinyImage","description":"Returns the MCP_TINY_IMAGE","inputSchema":{"type":"object","properties":{},"additionalProperties":false,"$schema":"http://json-schema.org/draft-07/schema#"}}]},"jsonrpc":"2.0","id":1}
+
+
+=== Response 5 Body Chunk 1 ===
+Accepted
+=== Response 5 Body Complete ===
+
+=== Request 6 ===
+URL: /message?sessionId=9c13cb62-1510-44d8-a67b-79e021fe9760
+Headers:
+Accept-Encoding: gzip, deflate
+Content-Length: 131
+Connection: keep-alive
+Content-Type: application/json
+Accept-Language: *
+Sec-Fetch-Mode: cors
+Accept: */*
+User-Agent: node
+Body:
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"_meta":{"progressToken":1},"name":"echo","arguments":{"message":"hello"}}}
+
+=== Response 6 ===
+Status: 202 Accepted
+Headers:
+Date: Sun, 16 Feb 2025 03:21:29 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+X-Powered-By: Express
+
+=== Response 6 Transfer-Encoding: chunked ===
+=== Response 6 Body Chunk 1 ===
+Accepted
+=== Response 6 Body Complete ===
+
+=== Response 2 Body Chunk 4 ===
+event: message
+data: {"result":{"content":[{"type":"text","text":"Echo: hello"}]},"jsonrpc":"2.0","id":2}
+
+
