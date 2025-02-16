@@ -32,14 +32,14 @@ async function callTool(sessionId, params) {
   if (typeof fn !== "function") {
     throw new Error(`Unknown tool: ${params.name}`);
   }
-  return fn(sessionId, params);
+  return fn(sessionId, params.arguments);
 }
 
-tools.echo = async function echo(sessionId, params) {
+tools.echo = async function echo(sessionId, { message }) {
   return {
     content: [
       { type: "text", text: `SESSION ID: ${sessionId}` },
-      { type: "text", text: `ECHO: ${params.arguments.message}` },
+      { type: "text", text: `ECHO: ${message}` },
     ],
   };
 };
