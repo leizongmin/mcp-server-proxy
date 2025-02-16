@@ -173,8 +173,8 @@ func handleMessage(w http.ResponseWriter, r *http.Request) {
 	default:
 		log.Printf("Accepted: sessionId=%s, method=%s", sessionId, req.Method)
 		go convertMessageToRequest(session.(*Session), req, body)
-		w.Write([]byte("Accepted"))
 		w.WriteHeader(http.StatusAccepted)
+		w.Write([]byte("Accepted"))
 	}
 }
 
@@ -205,7 +205,12 @@ func convertMessageToRequest(session *Session, req *RpcRequest, body []byte) {
 		return
 	}
 
-	if err := session.WriteEvent(eventMessage, rpcResp); err != nil {
+	if req.Method == "initialize" {
+		err = session.forceWriteEvent(eventMessage, rpcResp)
+	} else {
+		err = session.WriteEvent(eventMessage, rpcResp)
+	}
+	if err != nil {
 		log.Printf("Failed to write response: %v", err)
 		return
 	}
