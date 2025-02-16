@@ -34,55 +34,49 @@ async function listTools(sessionId, params) {
 
 async function callTool(sessionId, params) {
   console.log("callTool: sessionId=%s, params=%j", sessionId, params);
-  if (params.name === "echo") {
-    return {
-      content: [{ type: "text", text: `ECHO: ${params.arguments.message}` }],
-    };
+  switch (params.name) {
+    case "echo":
+      return functionEcho(sessionId, params);
+    default:
+      throw new Error(`Unknown tool: ${params.name}`);
   }
-  throw new Error(`Unknown tool: ${params.name}`);
+}
+
+async function functionEcho(sessionId, params) {
+  return {
+    content: [{ type: "text", text: `ECHO: ${params.arguments.message}` }],
+  };
 }
 
 const server = http.createServer(async (req, res) => {
-  let id;
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const sessionId = url.searchParams.get("sessionId");
     const body = await readBody(req);
-    const bodyJson = JSON.parse(body);
-    const params = bodyJson.params;
-    id = bodyJson.id;
+    const params = JSON.parse(body);
     console.log(
-      "request: sessionId=%s, path=%s, id=%s, params=%j",
+      "request: sessionId=%s, path=%s, params=%j",
       sessionId,
       url.pathname,
-      id,
       params
     );
     switch (url.pathname) {
       case "/initialize":
-        responseJson(
-          res,
-          jsonRpcResponse(id, await initialize(sessionId, params))
-        );
+        responseJson(res, await initialize(sessionId, params));
         break;
       case "/tools/list":
-        responseJson(
-          res,
-          jsonRpcResponse(id, await listTools(sessionId, params))
-        );
+        responseJson(res, await listTools(sessionId, params));
         break;
       case "/tools/call":
-        responseJson(
-          res,
-          jsonRpcResponse(id, await callTool(sessionId, params))
-        );
+        responseJson(res, await callTool(sessionId, params));
         break;
       default:
-        responseJson(res, jsonRpcError(id, -32601, "Method not found"));
+        responseJson(res, jsonRpcError(-32601, "Method not found"));
     }
   } catch (err) {
     console.error("error: %s", err);
-    responseJson(res, jsonRpcError(id, -32602, err.message));
+    res.statusCode = 500;
+    responseJson(res, jsonRpcError(-32602, err.message));
   }
 });
 
@@ -103,18 +97,6 @@ function responseJson(res, data) {
   res.end(JSON.stringify(data));
 }
 
-function jsonRpcError(id, code, message) {
-  return {
-    jsonrpc: "2.0",
-    id: id,
-    error: { code, message },
-  };
-}
-
-function jsonRpcResponse(id, result) {
-  return {
-    jsonrpc: "2.0",
-    id: id,
-    result: result,
-  };
+function jsonRpcError(code, message, data) {
+  return { code, message, data };
 }

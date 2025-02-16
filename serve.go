@@ -9,7 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
+	"path"
 	"sync"
 
 	"github.com/google/uuid"
@@ -19,7 +19,7 @@ var sessions sync.Map
 
 type Session struct {
 	id          string
-	targetUrl   string
+	targetUrl   *url.URL
 	writer      http.ResponseWriter
 	flusher     http.Flusher
 	initialized bool
@@ -34,7 +34,7 @@ const (
 	eventMessage  = "message"
 )
 
-func newSession(w http.ResponseWriter, targetUrl string) *Session {
+func newSession(w http.ResponseWriter, targetUrl *url.URL) *Session {
 	return &Session{
 		id:          uuid.NewString(),
 		targetUrl:   targetUrl,
@@ -80,9 +80,16 @@ type RpcRequest struct {
 
 // {"result":{"content":[{"type":"text","text":"Echo: hello"}]},"jsonrpc":"2.0","id":2}
 type RpcResponse struct {
-	Jsonrpc string `json:"jsonrpc"`
-	Id      any    `json:"id"`
-	Result  any    `json:"result"`
+	Jsonrpc string         `json:"jsonrpc"`
+	Id      any            `json:"id"`
+	Result  map[string]any `json:"result,omitempty"`
+	Error   *RpcError      `json:"error,omitempty"`
+}
+
+type RpcError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data"`
 }
 
 func startServe(localUrl, targetUrl string) error {
@@ -113,7 +120,7 @@ func startServe(localUrl, targetUrl string) error {
 }
 
 func handleConnect(w http.ResponseWriter, r *http.Request, parsedTargetUrl *url.URL) {
-	session := newSession(w, parsedTargetUrl.String())
+	session := newSession(w, parsedTargetUrl)
 	sessions.Store(session.id, session)
 
 	// Set SSE headers
@@ -172,7 +179,7 @@ func handleMessage(w http.ResponseWriter, r *http.Request) {
 		session.(*Session).Initialize()
 	default:
 		log.Printf("Accepted: sessionId=%s, method=%s", sessionId, req.Method)
-		go convertMessageToRequest(session.(*Session), req, body)
+		go convertMessageToRequest(session.(*Session), req)
 		w.WriteHeader(http.StatusAccepted)
 		w.Write([]byte("Accepted"))
 	}
@@ -180,31 +187,74 @@ func handleMessage(w http.ResponseWriter, r *http.Request) {
 
 // convertMessageToRequest converts a message to a request
 // and sends it to the target URL.
-func convertMessageToRequest(session *Session, req *RpcRequest, body []byte) {
-	targetUrl := fmt.Sprintf("%s/%s?sessionId=%s", strings.TrimSuffix(session.targetUrl, "/"), req.Method, session.id)
-	httpReq, err := http.NewRequest(http.MethodPost, targetUrl, bytes.NewBuffer(body))
+func convertMessageToRequest(session *Session, req *RpcRequest) {
+	// target request:
+	// - url: http://target-host/path/$req.method
+	// - body: $req.params
+	targetUrl := *session.targetUrl
+	targetUrl.Path = path.Join(targetUrl.Path, req.Method)
+	query := targetUrl.Query()
+	query.Set("sessionId", session.id)
+	targetUrl.RawQuery = query.Encode()
+	body, err := json.Marshal(req.Params)
+	if err != nil {
+		log.Printf("Failed to marshal request params: %v", err)
+		// FIXME: send error to the client
+		return
+	}
+	httpReq, err := http.NewRequest(http.MethodPost, targetUrl.String(), bytes.NewBuffer(body))
 	if err != nil {
 		log.Printf("Failed to create request: %v", err)
+		// FIXME: send error to the client
 		return
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	log.Printf("Sending request: sessionId=%s, %s", session.id, httpReq.URL)
+	log.Printf("Sending request: sessionId=%s, id=%v, %s", session.id, req.Id, httpReq.URL)
 	client := &http.Client{}
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		log.Printf("Failed to send request: %v", err)
+		// FIXME: send error to the client
 		return
 	}
 	defer resp.Body.Close()
-	log.Printf("Received response: sessionId=%s, %s", session.id, resp.Status)
+	log.Printf("Received response: sessionId=%s, id=%v, %s", session.id, req.Id, resp.Status)
 
-	var rpcResp RpcResponse
-	if err := json.NewDecoder(resp.Body).Decode(&rpcResp); err != nil {
-		log.Printf("Failed to decode response: %v", err)
+	// target response:
+	// - success:
+	//   - status: 200
+	//   - body: map[string]any
+	// - error:
+	//   - status: 500
+	//   - body: {code, message, data}
+
+	rpcResp := RpcResponse{
+		Jsonrpc: req.Jsonrpc,
+		Id:      req.Id,
+	}
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var result map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			log.Printf("Failed to decode response: %v", err)
+			// FIXME: send error to the client
+			return
+		}
+		rpcResp.Result = result
+	case http.StatusInternalServerError:
+		var rpcErr RpcError
+		if err := json.NewDecoder(resp.Body).Decode(&rpcErr); err != nil {
+			log.Printf("Failed to decode response: %v", err)
+			// FIXME: send error to the client
+			return
+		}
+		rpcResp.Error = &rpcErr
+	default:
+		log.Printf("Unexpected response: sessionId=%s, id=%v, %s", session.id, req.Id, resp.Status)
+		// FIXME: send error to the client
 		return
 	}
-
 	if req.Method == "initialize" {
 		err = session.forceWriteEvent(eventMessage, rpcResp)
 	} else {
