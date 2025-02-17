@@ -68,21 +68,106 @@ mcp-server-proxy serve http://localhost:8080 http://example.com
 
 ## 示例
 
-项目包含一个 Node.js 示例服务器（位于 `example/nodejs-echo` 目录），实现了简单的 echo 功能，不需要安装任何第三方依赖，只需要处理几个简单的 HTTP 请求即可：
+项目包含一个 Node.js 示例服务器（位于 `example/nodejs-echo` 目录），实现了简单的 echo 功能，不需要依赖 MCP 相关的 SDK，只需要处理几个简单的 HTTP 请求即可：
 
 1. 进入示例目录：
 
 ```bash
-cd example/nodejs-echo
+cd example/js-echo
 ```
 
-2. 启动服务器：
+本示例使用 Hono 框架实现，核心代码如下：
+
+```js
+import { Hono } from "hono";
+import { logger } from "hono/logger";
+
+const app = new Hono();
+app.use("*", logger());
+
+app.post("/initialize", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  const params = await c.req.json();
+  console.log("initialize: sessionId=%s, params=%j", sessionId, params);
+  return c.json({
+    protocolVersion: "2024-11-05",
+    capabilities: {
+      tools: {},
+    },
+    serverInfo: { name: "example-mcp-server", version: "1.0.0" },
+  });
+});
+
+app.post("/tools/list", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  const params = await c.req.json();
+  console.log("tools/list: sessionId=%s, params=%j", sessionId, params);
+  return c.json({
+    tools: [
+      {
+        name: "echo",
+        description: "Echoes back the input",
+        inputSchema: {
+          type: "object",
+          properties: {
+            message: { type: "string", description: "Message to echo" },
+          },
+          required: ["message"],
+          additionalProperties: false,
+          $schema: "http://json-schema.org/draft-07/schema#",
+        },
+      },
+    ],
+  });
+});
+
+app.post("/tools/call/:name", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  const name = c.req.param("name");
+  const params = await c.req.json();
+  console.log(
+    "tools/call: sessionId=%s, name=%s, params=%j",
+    sessionId,
+    name,
+    params
+  );
+  return c.json({
+    content: [
+      { type: "text", text: `SESSION ID: ${sessionId}` },
+      { type: "text", text: `ECHO: ${params.arguments?.message}` },
+    ],
+  });
+});
+
+export default app;
+```
+
+2. 安装依赖：
+
+```bash
+npm install
+```
+
+3. 启动服务器：
 
 ```bash
 node server.js
 ```
 
-这个示例服务器实现了一个简单的 echo 工具，可以将接收到的消息返回给客户端。
+4. 启动代理服务器：
+
+```bash
+# 代理服务器监听 http://localhost:3002
+# 代理服务器将请求转发到 http://localhost:3001
+mcp-server-proxy serve http://localhost:3002 http://localhost:3001
+```
+
+5. 配置 MCP Client：
+
+- Type: sse
+- Server URL: http://localhost:3002
+
+![cursor-call-echo-tool](example/cursor-call-echo-tool.png)
 
 ## 许可证
 
