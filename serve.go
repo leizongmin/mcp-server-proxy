@@ -72,10 +72,10 @@ func (s *Session) forceWriteEvent(event string, data any) error {
 
 // {"jsonrpc":"2.0","id":2,"method":"tools/call","params": {}}
 type RpcRequest struct {
-	Jsonrpc string `json:"jsonrpc"`
-	Id      any    `json:"id"`
-	Method  string `json:"method"`
-	Params  any    `json:"params"`
+	Jsonrpc string         `json:"jsonrpc"`
+	Id      any            `json:"id"`
+	Method  string         `json:"method"`
+	Params  map[string]any `json:"params"`
 }
 
 // {"result":{"content":[{"type":"text","text":"Echo: hello"}]},"jsonrpc":"2.0","id":2}
@@ -193,6 +193,13 @@ func convertMessageToRequest(session *Session, req *RpcRequest) {
 	// - body: $req.params
 	targetUrl := *session.targetUrl
 	targetUrl.Path = path.Join(targetUrl.Path, req.Method)
+	// tools/call/$name
+	if req.Method == "tools/call" {
+		name, ok := req.Params["name"]
+		if ok {
+			targetUrl.Path = path.Join(targetUrl.Path, name.(string))
+		}
+	}
 	query := targetUrl.Query()
 	query.Set("sessionId", session.id)
 	targetUrl.RawQuery = query.Encode()
@@ -209,6 +216,7 @@ func convertMessageToRequest(session *Session, req *RpcRequest) {
 		return
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Method = http.MethodPost
 
 	log.Printf("Sending request: sessionId=%s, id=%v, %s", session.id, req.Id, httpReq.URL)
 	client := &http.Client{}

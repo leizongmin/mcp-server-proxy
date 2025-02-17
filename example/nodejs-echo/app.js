@@ -1,13 +1,27 @@
-module.exports = {
-  listTools,
-  callTool,
-};
+import { Hono } from 'hono';
+import { logger } from 'hono/logger'
 
-const tools = {};
+const app = new Hono();
+app.use("*", logger());
 
-async function listTools(sessionId, params) {
-  console.log("listTools: sessionId=%s, params=%j", sessionId, params);
-  return {
+app.post("/initialize", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  const params = await c.req.json();
+  console.log("initialize: sessionId=%s, params=%j", sessionId, params);
+  return c.json({
+    protocolVersion: "2024-11-05",
+    capabilities: {
+      tools: {},
+    },
+    serverInfo: { name: "example-mcp-server", version: "1.0.0" },
+  });
+});
+
+app.post("/tools/list", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  const params = await c.req.json();
+  console.log("tools/list: sessionId=%s, params=%j", sessionId, params);
+  return c.json({
     tools: [
       {
         name: "echo",
@@ -23,23 +37,20 @@ async function listTools(sessionId, params) {
         },
       },
     ],
-  };
-}
+  });
+});
 
-async function callTool(sessionId, params) {
-  console.log("callTool: sessionId=%s, params=%j", sessionId, params);
-  const fn = tools[params.name];
-  if (typeof fn !== "function") {
-    throw new Error(`Unknown tool: ${params.name}`);
-  }
-  return fn(sessionId, params.arguments);
-}
-
-tools.echo = async function echo(sessionId, { message }) {
-  return {
+app.post("/tools/call/:name", async (c) => {
+  const sessionId = c.req.query("sessionId");
+  const name = c.req.param("name");
+  const params = await c.req.json();
+  console.log("tools/call: sessionId=%s, name=%s, params=%j", sessionId, name, params);
+  return c.json({
     content: [
       { type: "text", text: `SESSION ID: ${sessionId}` },
-      { type: "text", text: `ECHO: ${message}` },
+      { type: "text", text: `ECHO: ${params.arguments?.message}` },
     ],
-  };
-};
+  });
+});
+
+export default app;

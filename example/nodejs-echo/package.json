@@ -1,7 +1,12 @@
 {
   "private": true,
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.7.1"
   }
 }
