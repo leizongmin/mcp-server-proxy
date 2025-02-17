@@ -1,6 +1,6 @@
 # mcp-server-proxy
 
-将 MCP 协议的 SSE 传输层转换为标准 HTTP 请求/响应的代理服务器。
+将 MCP 协议的 SSE 传输层转换为标准 HTTP 请求/响应的代理服务器，简化 MCP Server 的开发和使用。
 
 ## 为什么需要这个工具
 
@@ -8,14 +8,12 @@ MCP（Model Context Protocol）是一个开放协议，为 AI 应用提供了标
 
 1. Stdio 传输协议：
 
-   - 需要在用户本地安装命令行工具
-   - 对运行环境有特定要求
-   - 用户需要进行相应的环境配置
+   - 😫 需要在用户本地安装命令行工具，对运行环境有特定要求
+   - 😫 用户需要进行相应的环境配置
 
 2. SSE（Server-Sent Events）传输协议：
-   - 基于 HTTP 长连接实现
-   - 用户配置相对简单，主要是设置服务地址
-   - 目前相关开发工具和示例相对较少
+   - 👍 基于 HTTP 长连接实现，用户配置相对简单，主要是设置服务地址
+   - 😫 目前相关开发工具和示例相对较少
 
 本工具通过以下方式简化 MCP Server 的开发和使用：
 
@@ -68,7 +66,7 @@ mcp-server-proxy serve http://localhost:8080 http://example.com
 
 ## 示例
 
-项目包含一个 Node.js 示例服务器（位于 `example/nodejs-echo` 目录），实现了简单的 echo 功能，不需要依赖 MCP 相关的 SDK，只需要处理几个简单的 HTTP 请求即可：
+项目包含一个 JavaScript 示例（位于 `example/js-echo` 目录），实现了简单的 echo 功能，不需要依赖 MCP 相关的 SDK，只需要处理几个简单的 HTTP 请求即可：
 
 1. 进入示例目录：
 
@@ -164,8 +162,12 @@ mcp-server-proxy serve http://localhost:3002 http://localhost:3001
 
 5. 配置 MCP Client：
 
-- Type: sse
-- Server URL: http://localhost:3002
+- Type: `sse`
+- Server URL: `http://localhost:3002/sse`
+
+6. 调用工具：
+
+以 Cursor 为例，提交内容`echo message "hello"`后，它会识别出来需要调用 `echo` 工具，此时会出现【Call Tool】按钮，点击次按钮确认后即可看到工具调用结果。
 
 ![cursor-call-echo-tool](example/cursor-call-echo-tool.png)
 
